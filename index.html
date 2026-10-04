@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Plato</title>
+<meta name="theme-color" content="#1d7656">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Plato">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+
+/* Layout: una sola columna tipo app de bolsillo; resumen del día arriba, cámara al centro, registro abajo */
+:root{
+  --bg:#edf1ef; --surface:#ffffff; --sunk:#e3e9e6; --ink:#14302a; --muted:#5b6f69; --line:#d2ddd8;
+  --accent:#1d7656; --accent-ink:#ffffff;
+  --prot:#c93d52; --carb:#d4900c; --fat:#3f74b8; --warn:#b8321f;
+  --display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body:"Figtree", "Helvetica Neue", Arial, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1614; --surface:#16211e; --sunk:#1d2a26; --ink:#e3ece8; --muted:#8ea29c; --line:#2a3833;
+  --accent:#46b48b; --accent-ink:#06140f;
+  --prot:#f0697d; --carb:#f0b43c; --fat:#78a6e2; --warn:#f07a62; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0e1614; --surface:#16211e; --sunk:#1d2a26; --ink:#e3ece8; --muted:#8ea29c; --line:#2a3833;
+  --accent:#46b48b; --accent-ink:#06140f;
+  --prot:#f0697d; --carb:#f0b43c; --fat:#78a6e2; --warn:#f07a62; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+.app{max-width:520px;margin:0 auto;padding-inline:16px;padding-block:14px 48px;display:flex;flex-direction:column;gap:18px}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+/* header */
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.brand{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:-.02em;margin:0}
+.brand span{color:var(--accent)}
+.datenav{display:flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px}
+.datenav button{border:0;background:transparent;width:34px;height:34px;border-radius:50%;font-size:18px;line-height:1}
+.datenav button:hover:not(:disabled){background:var(--sunk)}
+.datenav button:disabled{opacity:.3;cursor:default}
+.datenav .lbl{min-width:96px;text-align:center;font-weight:600;font-size:14px}
+.iconbtn{border:1px solid var(--line);background:var(--surface);width:40px;height:40px;border-radius:50%;display:grid;place-items:center}
+.iconbtn svg{width:19px;height:19px;stroke:var(--ink)}
+
+/* resumen */
+.summary{display:grid;grid-template-columns:132px 1fr;gap:18px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px}
+.ring{position:relative;width:132px;height:132px}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .track{fill:none;stroke:var(--sunk);stroke-width:11}
+.ring .val{fill:none;stroke:var(--accent);stroke-width:11;stroke-linecap:round;transition:stroke-dashoffset .5s ease}
+.ring.over .val{stroke:var(--warn)}
+.ring .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.ring .big{font-family:var(--display);font-weight:800;font-size:30px;line-height:1;letter-spacing:-.02em}
+.ring .small{font-size:12px;color:var(--muted);margin-top:4px}
+.macros{display:flex;flex-direction:column;gap:11px;min-width:0}
+.mrow .mhead{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;gap:8px}
+.mrow .mname{font-weight:600;display:flex;align-items:center;gap:6px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.mrow .mval{color:var(--muted)}
+.mrow .mval b{color:var(--ink);font-weight:700}
+.bar{height:7px;border-radius:99px;background:var(--sunk);overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;border-radius:99px;transition:width .5s ease}
+.left{grid-column:1/-1;font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px;margin-top:-4px}
+
+/* captura */
+.capture{display:flex;flex-direction:column;gap:10px}
+.shoot{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;border:0;border-radius:18px;padding:18px;background:var(--accent);color:var(--accent-ink);font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:-.01em}
+.shoot svg{width:24px;height:24px;stroke:currentColor}
+.shoot:disabled{opacity:.5;cursor:default}
+.subrow{display:flex;gap:8px}
+.ghost{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:11px 10px;font-weight:600;font-size:14px}
+.ghost:disabled{opacity:.5;cursor:default}
+.ghost[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+textarea{width:100%;min-height:64px;resize:vertical;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:10px 12px;font-size:15px}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+
+/* resultado */
+.result{background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden}
+.result .photo{width:100%;max-height:240px;object-fit:cover;display:block;background:var(--sunk)}
+.rbody{padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.rtitle{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.rtitle h2{font-family:var(--display);font-weight:800;font-size:21px;line-height:1.15;margin:0;text-wrap:balance;min-width:0}
+.chip{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 9px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.chip.alta{color:var(--accent);border-color:var(--accent)}
+.chip.baja{color:var(--warn);border-color:var(--warn)}
+.loading{display:flex;align-items:center;gap:12px;color:var(--muted)}
+.spin{width:22px;height:22px;border-radius:50%;border:3px solid var(--sunk);border-top-color:var(--accent);animation:sp 0.9s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spin{animation-duration:3s}.ring .val,.bar i{transition:none}}
+.items{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.item{display:grid;grid-template-columns:1fr auto auto;gap:6px 10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.item .iname{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.item .imac{grid-column:1/2;font-size:12.5px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+.item .ikcal{grid-row:1/3;grid-column:3;text-align:right;font-weight:700;font-size:15px}
+.item .ikcal small{display:block;font-weight:500;font-size:11px;color:var(--muted)}
+.grams{grid-row:1/3;grid-column:2;display:flex;align-items:center;gap:4px;background:var(--sunk);border-radius:10px;padding:4px 8px}
+.grams input{width:52px;border:0;background:transparent;text-align:right;font-weight:600;font-size:15px;padding:2px 0}
+.grams span{font-size:12px;color:var(--muted)}
+.xbtn{border:0;background:transparent;color:var(--muted);font-size:12px;padding:0;text-decoration:underline;justify-self:start}
+.totals{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.totals div{background:var(--sunk);border-radius:12px;padding:8px 4px}
+.totals b{display:block;font-family:var(--display);font-weight:800;font-size:19px}
+.totals span{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:transparent;border-radius:99px;padding:7px 12px;font-size:13.5px;font-weight:600}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.actions{display:flex;gap:8px}
+.primary{flex:2;border:0;border-radius:14px;padding:13px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:15px}
+.actions .ghost{flex:1}
+.err{color:var(--warn);font-weight:500;margin:0}
+.aiNote{font-size:13px;color:var(--muted);margin:0}
+
+/* registro */
+.sec h3{font-family:var(--display);font-weight:800;font-size:18px;margin:0 0 8px;letter-spacing:-.01em}
+.empty{border:1.5px dashed var(--line);border-radius:16px;padding:18px;color:var(--muted);text-align:center;font-size:14px}
+.group{margin-top:8px}
+.glabel{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 6px;display:flex;justify-content:space-between}
+.meal{display:grid;grid-template-columns:52px 1fr auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px 10px 8px 8px;margin-bottom:6px}
+.thumb{width:52px;height:52px;border-radius:10px;object-fit:cover;background:var(--sunk);display:grid;place-items:center;color:var(--muted);font-size:20px}
+.meal .mt{min-width:0}
+.meal .mt b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.meal .mt span{font-size:12.5px;color:var(--muted);display:flex;gap:9px;flex-wrap:wrap}
+.meal .mr{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.meal .mr b{font-weight:700}
+.del{border:0;background:transparent;color:var(--muted);font-size:12px;padding:2px 0}
+.del.armed{color:var(--warn);font-weight:700}
+
+/* semana */
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:120px;position:relative;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 10px 8px}
+.wcol{display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end;border:0;background:transparent;padding:0;min-width:0}
+.wbar{width:100%;max-width:26px;border-radius:7px 7px 3px 3px;background:var(--sunk);position:relative;min-height:3px}
+.wbar.has{background:var(--accent)}
+.wbar.over{background:var(--warn)}
+.wcol.cur .wd{color:var(--ink);font-weight:800}
+.wd{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase}
+.goalline{position:absolute;left:10px;right:10px;border-top:1.5px dashed var(--muted);opacity:.55;pointer-events:none}
+
+/* ajustes */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.panel h3{font-family:var(--display);font-weight:800;font-size:18px;margin:0}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fields label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.fields input{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:9px 10px;font-size:16px;font-weight:600;color:var(--ink)}
+.note{font-size:13px;color:var(--muted);background:var(--sunk);border-radius:12px;padding:10px 12px;margin:0}
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-weight:600;font-size:14px;z-index:5;max-width:calc(100% - 32px)}
+
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+body{margin:0;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+img{max-width:100%}
+select{font:inherit;color:var(--ink);border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:9px 10px;font-size:16px;font-weight:600;width:100%}
+.fields .wide{grid-column:1/-1}
+.fields input[type=password],.fields input[type=text]{font-size:15px;font-weight:500}
+.setup{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.setup h2{font-family:var(--display);font-weight:800;font-size:20px;margin:0}
+.setup ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.setup a{color:var(--accent);font-weight:600}
+.backup{display:flex;gap:8px;flex-wrap:wrap}
+.backup .ghost{flex:1 1 140px}
+.cost{font-size:12px;color:var(--muted);margin:0}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="top">
+    <h1 class="brand">Plato<span>.</span></h1>
+    <div class="datenav">
+      <button id="prevDay" aria-label="Día anterior">‹</button>
+      <div class="lbl" id="dayLabel">Hoy</div>
+      <button id="nextDay" aria-label="Día siguiente">›</button>
+    </div>
+    <button class="iconbtn" id="openGoals" aria-label="Ajustes y metas">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/></svg>
+    </button>
+  </header>
+
+  <section class="setup" id="setup" hidden>
+    <h2>Conecta tu clave de Claude</h2>
+    <p class="hint" style="font-size:14px">Plato le manda la foto directo a Claude con tu propia clave. La clave queda guardada solo en este teléfono.</p>
+    <ol>
+      <li>Entra a <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> e inicia sesión.</li>
+      <li>En <b>Billing</b>, carga saldo (con 5 USD alcanzan cientos de fotos).</li>
+      <li>En <b>API Keys</b>, toca <b>Create Key</b> y copia la clave (empieza con <span class="num">sk-ant-</span>).</li>
+      <li>Pégala aquí abajo.</li>
+    </ol>
+    <div class="fields"><label class="wide" for="setupKey">Clave de API<input id="setupKey" type="password" autocomplete="off" placeholder="sk-ant-..."></label></div>
+    <button class="primary" id="setupSave">Guardar clave</button>
+  </section>
+
+  <section class="panel" id="goalsPanel" hidden>
+    <h3>Metas diarias</h3>
+    <div class="fields">
+      <label for="gK">Calorías (kcal)<input id="gK" type="number" inputmode="numeric" min="0"></label>
+      <label for="gP">Proteína (g)<input id="gP" type="number" inputmode="numeric" min="0"></label>
+      <label for="gC">Carbohidratos (g)<input id="gC" type="number" inputmode="numeric" min="0"></label>
+      <label for="gG">Grasa (g)<input id="gG" type="number" inputmode="numeric" min="0"></label>
+    </div>
+    <p class="hint num" id="goalCheck"></p>
+    <h3>IA</h3>
+    <div class="fields">
+      <label class="wide" for="model">Modelo
+        <select id="model">
+          <option value="claude-sonnet-5-5">Sonnet 5.5 · recomendado (~1 centavo USD por foto)</option>
+          <option value="claude-haiku-4-5-20251001">Haiku 4.5 · más rápido y barato</option>
+          <option value="claude-opus-5-5">Opus 5.5 · más preciso, ~2× el costo</option>
+        </select>
+      </label>
+      <label class="wide" for="apiKey">Clave de API<input id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-..."></label>
+    </div>
+    <h3>Respaldo</h3>
+    <p class="hint">Tu registro vive solo en este teléfono. Exporta un respaldo de vez en cuando por si borras los datos de Safari.</p>
+    <div class="backup">
+      <button class="ghost" id="exportBtn">Exportar respaldo</button>
+      <button class="ghost" id="importBtn">Importar respaldo</button>
+      <input id="importInput" type="file" accept="application/json,.json" hidden>
+    </div>
+    <div class="actions"><button class="primary" id="saveGoals">Guardar</button><button class="ghost" id="closeGoals">Cerrar</button></div>
+  </section>
+
+  <section class="summary" aria-label="Resumen del día">
+    <div class="ring" id="ring">
+      <svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="52"/><circle class="val" id="ringVal" cx="60" cy="60" r="52"/></svg>
+      <div class="mid"><div class="big num" id="kcalBig">0</div><div class="small num" id="kcalGoal">de 2200 kcal</div></div>
+    </div>
+    <div class="macros" id="macroBars"></div>
+    <div class="left num" id="leftLine"></div>
+  </section>
+
+  <section class="capture" id="capture">
+    <input id="camInput" type="file" accept="image/*" capture="environment" hidden>
+    <input id="galInput" type="file" accept="image/*" hidden>
+    <button class="shoot" id="shootBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.6"/></svg>
+      Fotografiar comida
+    </button>
+    <div class="subrow">
+      <button class="ghost" id="galBtn">Elegir de galería</button>
+      <button class="ghost" id="textBtn" aria-pressed="false">Describir sin foto</button>
+    </div>
+    <label for="nota" class="hint">Detalles opcionales que la foto no muestra (mejoran la estimación):</label>
+    <textarea id="nota" placeholder="Ej: arroz con pollo, porción grande, cocinado con aceite de oliva"></textarea>
+    <button class="primary" id="textGo" hidden>Calcular macros</button>
+  </section>
+
+  <section class="result" id="result" hidden></section>
+
+  <section class="sec">
+    <h3 id="logTitle">Registro de hoy</h3>
+    <div id="log"></div>
+  </section>
+
+  <section class="sec">
+    <h3>Últimos 7 días</h3>
+    <div class="week" id="week"></div>
+  </section>
+</main>
+<div class="toast" id="toast" hidden></div>
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const MEALS = [["desayuno","Desayuno"],["almuerzo","Almuerzo"],["once","Once"],["cena","Cena"],["snack","Snack"]];
+const MACROS = [["p","Proteína","--prot"],["c","Carbohidratos","--carb"],["g","Grasa","--fat"]];
+const STORE = "plato.v1";
+const pad = n => String(n).padStart(2,"0");
+const ds = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parse = s => { const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); };
+const shift = (s,n) => { const d=parse(s); d.setDate(d.getDate()+n); return ds(d); };
+const today = () => ds(new Date());
+const n0 = v => Math.max(0, Number(v)||0);
+const r0 = v => Math.round(n0(v));
+const r1 = v => Math.round(n0(v)*10)/10;
+
+/* ---------- estado local ---------- */
+let state = { goals:{kcal:2200,p:150,c:230,g:70}, goalsSaved:false, apiKey:"", model:"claude-sonnet-5-5", days:{} };
+try { const raw=localStorage.getItem(STORE); if(raw) state=Object.assign(state, JSON.parse(raw)); } catch(e){}
+function persist(){
+  try { localStorage.setItem(STORE, JSON.stringify(state)); return true; }
+  catch(e){ toast("No queda espacio en el teléfono. Exporta un respaldo y borra días antiguos."); return false; }
+}
+let current=today(), pending=null, ctl=null;
+
+function el(tag, attrs, ...kids){
+  const e=document.createElement(tag);
+  if(attrs) for(const k in attrs){ const v=attrs[k];
+    if(k==="class") e.className=v; else if(k==="style") e.setAttribute("style",v);
+    else if(k.startsWith("on")) e.addEventListener(k.slice(2),v);
+    else if(v===true) e.setAttribute(k,""); else if(v!==false && v!=null) e.setAttribute(k,v); }
+  for(const k of kids.flat()){ if(k==null||k===false) continue; e.append(k.nodeType?k:document.createTextNode(String(k))); }
+  return e;
+}
+let toastT;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,2600); }
+
+function dayLabel(s){
+  if(s===today()) return "Hoy";
+  if(s===shift(today(),-1)) return "Ayer";
+  return parse(s).toLocaleDateString("es-CL",{weekday:"short",day:"numeric",month:"short"});
+}
+function defaultMeal(){
+  const h=new Date().getHours();
+  if(h<11) return "desayuno"; if(h<16) return "almuerzo"; if(h<19) return "once"; if(h<23) return "cena"; return "snack";
+}
+function mealsOf(s){ return (state.days[s] && Array.isArray(state.days[s].meals)) ? state.days[s].meals : []; }
+function sumMeals(list){ return list.reduce((a,m)=>({kcal:a.kcal+n0(m.kcal),p:a.p+n0(m.p),c:a.c+n0(m.c),g:a.g+n0(m.g)}),{kcal:0,p:0,c:0,g:0}); }
+function saveDay(date, meals){
+  if(meals.length) state.days[date]={meals}; else delete state.days[date];
+  const ok=persist(); render(); return ok;
+}
+
+/* ---------- render ---------- */
+function render(){
+  const goals=state.goals;
+  $("#setup").hidden = !!state.apiKey;
+  $("#dayLabel").textContent=dayLabel(current);
+  $("#nextDay").disabled = current>=today();
+  $("#logTitle").textContent = current===today() ? "Registro de hoy" : "Registro · "+dayLabel(current);
+  const tot=sumMeals(mealsOf(current));
+  const C=2*Math.PI*52, frac=Math.min(1, goals.kcal? tot.kcal/goals.kcal : 0);
+  const rv=$("#ringVal"); rv.style.strokeDasharray=C; rv.style.strokeDashoffset=C*(1-frac);
+  $("#ring").classList.toggle("over", goals.kcal>0 && tot.kcal>goals.kcal*1.05);
+  $("#kcalBig").textContent=r0(tot.kcal).toLocaleString("es-CL");
+  $("#kcalGoal").textContent="de "+r0(goals.kcal).toLocaleString("es-CL")+" kcal";
+  const mb=$("#macroBars"); mb.replaceChildren();
+  for(const [k,name,colr] of MACROS){
+    const pct=goals[k]? Math.min(100, tot[k]/goals[k]*100):0;
+    mb.append(el("div",{class:"mrow"},
+      el("div",{class:"mhead"},
+        el("span",{class:"mname"}, el("i",{class:"dot",style:"background:var("+colr+")"}), name),
+        el("span",{class:"mval num"}, el("b",null,r0(tot[k])), " / "+r0(goals[k])+" g")),
+      el("div",{class:"bar"}, el("i",{style:"width:"+pct+"%;background:var("+colr+")"}))));
+  }
+  const left=goals.kcal-tot.kcal;
+  $("#leftLine").textContent = (left>=0 ? "Te quedan "+r0(left).toLocaleString("es-CL")+" kcal" : "Pasaste la meta por "+r0(-left).toLocaleString("es-CL")+" kcal")
+    + " · faltan "+r0(Math.max(0,goals.p-tot.p))+" g de proteína" + (state.goalsSaved?"":" · metas de ejemplo, ajústalas arriba ◎");
+  renderLog(); renderWeek();
+}
+
+let armedId=null, armT;
+function renderLog(){
+  const box=$("#log"); box.replaceChildren();
+  const list=mealsOf(current);
+  if(!list.length){ box.append(el("div",{class:"empty"},"Aún no hay comidas este día. Saca una foto a tu plato y la IA estimará calorías, proteína, carbohidratos y grasa.")); return; }
+  for(const [key,label] of MEALS){
+    const ms=list.filter(m=>(m.tipo||"snack")===key).sort((a,b)=>(a.t||0)-(b.t||0));
+    if(!ms.length) continue;
+    const st=sumMeals(ms);
+    const g=el("div",{class:"group"}, el("div",{class:"glabel num"}, el("span",null,label), el("span",null,r0(st.kcal)+" kcal")));
+    for(const m of ms){
+      const armed=armedId===m.id;
+      g.append(el("div",{class:"meal"},
+        m.thumb ? el("img",{class:"thumb",src:m.thumb,alt:""}) : el("div",{class:"thumb"},"🍽"),
+        el("div",{class:"mt"}, el("b",null,m.plato||"Comida"),
+          el("span",{class:"num"}, "P "+r0(m.p)+"g", "C "+r0(m.c)+"g", "G "+r0(m.g)+"g")),
+        el("div",{class:"mr num"}, el("b",null,r0(m.kcal)+" kcal"),
+          el("button",{class:"del"+(armed?" armed":""), onclick:()=>onDelete(m.id)}, armed?"¿Eliminar?":"Quitar"))));
+    }
+    box.append(g);
+  }
+}
+function onDelete(id){
+  if(armedId!==id){ armedId=id; clearTimeout(armT); armT=setTimeout(()=>{armedId=null;renderLog();},3500); renderLog(); return; }
+  armedId=null;
+  if(saveDay(current, mealsOf(current).filter(m=>m.id!==id))) toast("Comida eliminada");
+}
+function renderWeek(){
+  const goals=state.goals, w=$("#week"); w.replaceChildren();
+  const ks=[]; for(let i=6;i>=0;i--) ks.push(shift(current,-i));
+  const vals=ks.map(k=>sumMeals(mealsOf(k)).kcal);
+  const max=Math.max(goals.kcal*1.2, ...vals, 1), inner=80;
+  for(let i=0;i<7;i++){
+    const k=ks[i], v=vals[i], h=Math.max(3, v/max*inner);
+    const cls="wbar"+(v>0?" has":"")+(goals.kcal && v>goals.kcal*1.05?" over":"");
+    w.append(el("button",{class:"wcol"+(k===current?" cur":""), "aria-label":dayLabel(k)+": "+r0(v)+" kcal", onclick:()=>{ current=k; render(); renderResult(); }},
+      el("div",{class:cls,style:"height:"+h+"px"}),
+      el("span",{class:"wd"}, parse(k).toLocaleDateString("es-CL",{weekday:"narrow"}))));
+  }
+  if(goals.kcal){ const gl=el("div",{class:"goalline"}); gl.style.bottom=(8+20+goals.kcal/max*inner)+"px"; w.append(gl); }
+}
+
+/* ---------- imágenes ---------- */
+function loadImg(file){
+  return new Promise((res,rej)=>{ const img=new Image(), u=URL.createObjectURL(file);
+    img.onload=()=>{ URL.revokeObjectURL(u); res(img); }; img.onerror=()=>{ URL.revokeObjectURL(u); rej(new Error("img")); }; img.src=u; });
+}
+function toJpeg(img, maxSide, q){
+  const sc=Math.min(1, maxSide/Math.max(img.naturalWidth,img.naturalHeight));
+  const c=document.createElement("canvas"); c.width=Math.round(img.naturalWidth*sc); c.height=Math.round(img.naturalHeight*sc);
+  c.getContext("2d").drawImage(img,0,0,c.width,c.height); return c.toDataURL("image/jpeg",q);
+}
+function toThumb(img){
+  const s=144, sc=Math.max(s/img.naturalWidth, s/img.naturalHeight), c=document.createElement("canvas");
+  c.width=s; c.height=s; const w=img.naturalWidth*sc, h=img.naturalHeight*sc;
+  c.getContext("2d").drawImage(img,(s-w)/2,(s-h)/2,w,h); return c.toDataURL("image/jpeg",0.62);
+}
+
+/* ---------- IA (API de Claude) ---------- */
+function buildPrompt(nota, hasPhoto){
+  return [
+    "Actúa como nutricionista. "+(hasPhoto?"Analiza la foto de comida adjunta.":"No hay foto: estima a partir de la descripción del usuario."),
+    "Identifica cada alimento por separado y estima su porción en gramos"+(hasPhoto?" usando referencias visuales (plato llano ~26 cm, cubiertos, manos, envases).":"."),
+    "Calcula kcal, proteína, carbohidratos y grasa de cada alimento con valores de tablas estándar (USDA o tablas de composición de Chile), considerando el método de cocción visible (frito, salteado, con aceite, salsas).",
+    nota ? "Información del usuario (prioridad sobre lo que ves): "+nota.slice(0,600) : "El usuario no agregó detalles.",
+    "Nombres en español de Chile. Si no ves comida, devuelve items vacío y explícalo en nota.",
+    'Responde SOLO con JSON, sin texto adicional, con esta forma: {"plato":"nombre corto del plato","items":[{"nombre":"Arroz blanco","gramos":150,"kcal":195,"p":4,"c":42,"g":0.4}],"confianza":"alta|media|baja","nota":"una frase con supuestos importantes"}'
+  ].join("\n");
+}
+async function askClaude(prompt, jpegDataUrl, signal){
+  const content=[];
+  if(jpegDataUrl) content.push({type:"image",source:{type:"base64",media_type:"image/jpeg",data:jpegDataUrl.split(",")[1]}});
+  content.push({type:"text",text:prompt});
+  let res;
+  try{
+    res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST", signal,
+      headers:{"content-type":"application/json","x-api-key":state.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:state.model,max_tokens:1500,messages:[{role:"user",content}]})
+    });
+  }catch(e){ if(e.name==="AbortError") throw {code:"cancelled"}; throw {code:"network"}; }
+  let body=null; try{ body=await res.json(); }catch(e){}
+  if(!res.ok){
+    const msg=(body&&body.error&&body.error.message)||"";
+    if(res.status===401) throw {code:"auth"};
+    if(res.status===429) throw {code:"rate"};
+    if(res.status===529||res.status>=500) throw {code:"overloaded"};
+    if(/credit balance/i.test(msg)) throw {code:"credit"};
+    if(res.status===404||/model/i.test(msg)) throw {code:"model"};
+    throw {code:"other", detail:msg};
+  }
+  const text=(body.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+  const a=text.indexOf("{"), b=text.lastIndexOf("}");
+  if(a<0||b<a) throw {code:"json"};
+  try{ return JSON.parse(text.slice(a,b+1)); }catch(e){ throw {code:"json"}; }
+}
+function errMsg(e){
+  return ({
+    auth:"La clave de API no es válida. Revísala en Ajustes ◎.",
+    credit:"Tu cuenta de la API no tiene saldo. Carga saldo en console.anthropic.com → Billing.",
+    rate:"Demasiadas solicitudes seguidas. Espera un minuto y reintenta.",
+    overloaded:"Claude está saturado en este momento. Reintenta en unos segundos.",
+    model:"Ese modelo no está disponible para tu clave. Elige otro en Ajustes ◎.",
+    json:"La respuesta llegó incompleta. Toca Reintentar.",
+    network:"Sin conexión a internet. Revisa tu señal y reintenta.",
+    img:"No pude leer esa imagen. Prueba con otra foto."
+  })[e&&e.code] || ("Algo falló al analizar. "+((e&&e.detail)||"Toca Reintentar."));
+}
+async function analyze(file){
+  if(!state.apiKey){ $("#setup").hidden=false; $("#setup").scrollIntoView({behavior:"smooth"}); toast("Primero guarda tu clave de API."); return; }
+  if(ctl) ctl.abort();
+  const nota=$("#nota").value.trim();
+  if(!file && !nota){ toast("Escribe qué comiste para calcularlo."); $("#nota").focus(); return; }
+  const prev = pending && pending.file===file ? pending : null;
+  if(pending && pending.url && !prev) URL.revokeObjectURL(pending.url);
+  pending={file, url: file?(prev?prev.url:URL.createObjectURL(file)):null, thumb:prev?prev.thumb:null, jpeg:prev?prev.jpeg:null, state:"loading", items:[], tipo:defaultMeal()};
+  const my=pending; renderResult();
+  $("#result").scrollIntoView({behavior:"smooth",block:"start"});
+  ctl=new AbortController();
+  try{
+    if(file && !my.jpeg){
+      let img; try{ img=await loadImg(file); }catch(e){ throw {code:"img"}; }
+      my.jpeg=toJpeg(img,1280,0.82); my.thumb=toThumb(img);
+    }
+    const r=await askClaude(buildPrompt(nota,!!file), my.jpeg, ctl.signal);
+    if(pending!==my) return;
+    my.items=(Array.isArray(r.items)?r.items:[]).map(it=>{
+      const gr=n0(it.gramos)||100;
+      return {nombre:String(it.nombre||"Alimento").slice(0,80), gramos:gr, base:{gramos:gr,kcal:n0(it.kcal),p:n0(it.p),c:n0(it.c),g:n0(it.g)}};
+    });
+    my.plato=String(r.plato||"Comida").slice(0,80);
+    my.confianza=["alta","media","baja"].includes(r.confianza)?r.confianza:"media";
+    my.notaIA=r.nota?String(r.nota).slice(0,240):"";
+    my.state=my.items.length?"ready":"empty";
+  }catch(e){
+    if(pending!==my || (e&&e.code==="cancelled")) return;
+    my.state="error"; my.error=errMsg(e);
+  }
+  renderResult();
+}
+function itemVals(it){ const f=it.base.gramos? it.gramos/it.base.gramos : 1; return {kcal:it.base.kcal*f,p:it.base.p*f,c:it.base.c*f,g:it.base.g*f}; }
+function pendingTotals(){ return pending.items.reduce((a,it)=>{ const v=itemVals(it); return {kcal:a.kcal+v.kcal,p:a.p+v.p,c:a.c+v.c,g:a.g+v.g}; },{kcal:0,p:0,c:0,g:0}); }
+
+function renderResult(){
+  const box=$("#result");
+  if(!pending){ box.hidden=true; box.replaceChildren(); return; }
+  box.hidden=false; box.replaceChildren();
+  if(pending.url) box.append(el("img",{class:"photo",src:pending.url,alt:"Foto de tu comida"}));
+  const body=el("div",{class:"rbody"}); box.append(body);
+  if(pending.state==="loading"){
+    body.append(el("div",{class:"loading"}, el("div",{class:"spin"}), el("span",null,"Analizando tu plato… suele tardar entre 5 y 20 segundos.")),
+      el("div",{class:"actions"}, el("button",{class:"ghost",onclick:discard},"Cancelar")));
+    return;
+  }
+  if(pending.state==="error" || pending.state==="empty"){
+    body.append(el("p",{class:"err"}, pending.state==="error"?pending.error:(pending.notaIA||"No encontré comida en la foto.")),
+      el("div",{class:"actions"},
+        el("button",{class:"primary",onclick:()=>analyze(pending.file)},"Reintentar"),
+        el("button",{class:"ghost",onclick:discard},"Descartar")));
+    return;
+  }
+  body.append(el("div",{class:"rtitle"}, el("h2",null,pending.plato), el("span",{class:"chip "+pending.confianza},"Confianza "+pending.confianza)));
+  const tot=el("div",{class:"totals num"}); body.append(tot);
+  const list=el("div",{class:"items"});
+  pending.items.forEach((it,i)=>{
+    const inp=el("input",{type:"number",inputmode:"numeric",min:"0",value:r0(it.gramos),id:"gr"+i,"aria-label":"Gramos de "+it.nombre});
+    const kc=el("div",{class:"ikcal num"}, "0", el("small",null,"kcal"));
+    const mac=el("div",{class:"imac num"});
+    const fill=()=>{ const v=itemVals(it); mac.replaceChildren(el("span",null,"P "+r1(v.p)+"g"),el("span",null,"C "+r1(v.c)+"g"),el("span",null,"G "+r1(v.g)+"g")); kc.firstChild.textContent=r0(v.kcal); };
+    fill();
+    inp.addEventListener("input",()=>{ it.gramos=n0(inp.value); fill(); fillTotals(); });
+    list.append(el("div",{class:"item"}, el("div",{class:"iname"},it.nombre), el("div",{class:"grams"}, inp, el("span",null,"g")), kc, mac,
+      el("button",{class:"xbtn",onclick:()=>{ pending.items.splice(i,1); if(!pending.items.length){pending.state="empty";pending.notaIA="Quitaste todos los alimentos.";} renderResult(); }},"Quitar alimento")));
+  });
+  body.append(list);
+  if(pending.notaIA) body.append(el("p",{class:"aiNote"},pending.notaIA));
+  body.append(el("p",{class:"hint"},"Ajusta los gramos si la porción no calza; los macros se recalculan solos."));
+  const seg=el("div",{class:"seg",role:"group","aria-label":"Tipo de comida"});
+  for(const [k,l] of MEALS) seg.append(el("button",{"aria-pressed":String(pending.tipo===k),onclick:()=>{pending.tipo=k; renderResult();}},l));
+  body.append(seg, el("div",{class:"actions"},
+    el("button",{class:"primary",onclick:saveMeal},"Guardar en "+dayLabel(current).toLowerCase()),
+    el("button",{class:"ghost",onclick:discard},"Descartar")));
+  fillTotals();
+  function fillTotals(){ const t=pendingTotals(); tot.replaceChildren(
+    el("div",null,el("b",null,r0(t.kcal)),el("span",null,"kcal")),
+    el("div",null,el("b",{style:"color:var(--prot)"},r0(t.p)),el("span",null,"prot g")),
+    el("div",null,el("b",{style:"color:var(--carb)"},r0(t.c)),el("span",null,"carb g")),
+    el("div",null,el("b",{style:"color:var(--fat)"},r0(t.g)),el("span",null,"grasa g"))); }
+}
+function discard(){
+  if(ctl) ctl.abort();
+  if(pending && pending.url) URL.revokeObjectURL(pending.url);
+  pending=null; renderResult();
+  $("#camInput").value=""; $("#galInput").value="";
+}
+function saveMeal(){
+  const t=pendingTotals();
+  const meal={ id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), t:Date.now(), tipo:pending.tipo, plato:pending.plato, thumb:pending.thumb||null,
+    items:pending.items.map(it=>{ const v=itemVals(it); return {nombre:it.nombre,gramos:r0(it.gramos),kcal:r0(v.kcal),p:r1(v.p),c:r1(v.c),g:r1(v.g)}; }),
+    kcal:r0(t.kcal), p:r1(t.p), c:r1(t.c), g:r1(t.g) };
+  if(saveDay(current, mealsOf(current).concat([meal]))) toast("Guardado: "+meal.kcal+" kcal");
+  $("#nota").value=""; discard();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+/* ---------- ajustes ---------- */
+function openGoals(){
+  const p=$("#goalsPanel"); p.hidden=!p.hidden;
+  if(!p.hidden){ const g=state.goals; $("#gK").value=g.kcal; $("#gP").value=g.p; $("#gC").value=g.c; $("#gG").value=g.g;
+    $("#model").value=state.model; $("#apiKey").value=state.apiKey; goalCheck(); }
+}
+function goalCheck(){
+  const k=4*n0($("#gP").value)+4*n0($("#gC").value)+9*n0($("#gG").value);
+  $("#goalCheck").textContent="Tus macros suman "+r0(k).toLocaleString("es-CL")+" kcal (4·P + 4·C + 9·G).";
+}
+function saveSettings(){
+  state.goals={kcal:r0($("#gK").value),p:r0($("#gP").value),c:r0($("#gC").value),g:r0($("#gG").value)};
+  state.goalsSaved=true; state.model=$("#model").value; state.apiKey=$("#apiKey").value.trim();
+  persist(); $("#goalsPanel").hidden=true; render(); toast("Ajustes guardados");
+}
+async function exportBackup(){
+  const data=JSON.stringify({app:"plato",v:1,exportado:new Date().toISOString(),goals:state.goals,days:state.days});
+  const name="plato-respaldo-"+today()+".json";
+  const file=new File([data],name,{type:"application/json"});
+  try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:name}); return; } }catch(e){ if(e.name==="AbortError") return; }
+  const a=el("a",{href:URL.createObjectURL(file),download:name}); document.body.append(a); a.click(); a.remove();
+}
+async function importBackup(file){
+  try{
+    const d=JSON.parse(await file.text());
+    if(!d || d.app!=="plato" || typeof d.days!=="object") throw 0;
+    let n=0;
+    for(const k in d.days){ const inc=(d.days[k]&&d.days[k].meals)||[]; const have=mealsOf(k); const ids=new Set(have.map(m=>m.id));
+      const add=inc.filter(m=>m&&!ids.has(m.id)); n+=add.length; if(add.length) state.days[k]={meals:have.concat(add)}; }
+    if(d.goals){ state.goals=Object.assign({},state.goals,d.goals); state.goalsSaved=true; }
+    persist(); render(); toast("Respaldo importado: "+n+" comidas nuevas");
+  }catch(e){ toast("Ese archivo no es un respaldo de Plato."); }
+}
+
+/* ---------- eventos ---------- */
+$("#shootBtn").onclick=()=>$("#camInput").click();
+$("#galBtn").onclick=()=>$("#galInput").click();
+for(const id of ["#camInput","#galInput"]) $(id).addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(f) analyze(f); });
+$("#textBtn").onclick=()=>{ const b=$("#textBtn"), on=b.getAttribute("aria-pressed")!=="true"; b.setAttribute("aria-pressed",String(on)); $("#textGo").hidden=!on; if(on) $("#nota").focus(); };
+$("#textGo").onclick=()=>analyze(null);
+$("#prevDay").onclick=()=>{ current=shift(current,-1); render(); renderResult(); };
+$("#nextDay").onclick=()=>{ if(current<today()){ current=shift(current,1); render(); renderResult(); } };
+$("#openGoals").onclick=openGoals; $("#closeGoals").onclick=()=>$("#goalsPanel").hidden=true;
+$("#saveGoals").onclick=saveSettings;
+for(const id of ["#gP","#gC","#gG"]) $(id).addEventListener("input",goalCheck);
+$("#setupSave").onclick=()=>{ const k=$("#setupKey").value.trim(); if(!k.startsWith("sk-ant-")){ toast("La clave debe empezar con sk-ant-"); return; } state.apiKey=k; persist(); render(); toast("Clave guardada. ¡Listo para fotografiar!"); };
+$("#exportBtn").onclick=exportBackup;
+$("#importBtn").onclick=()=>$("#importInput").click();
+$("#importInput").addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(f) importBackup(f); e.target.value=""; });
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) render(); });
+
+render();
+})();
+
+</script>
+</body>
+</html>
