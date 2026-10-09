@@ -170,6 +170,31 @@ textarea{width:100%;min-height:64px;resize:vertical;border:1px solid var(--line)
 .wbar.over{background:var(--warn)}
 .wcol.cur .wd{color:var(--ink);font-weight:800}
 .wd{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase}
+.wk{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px}
+.wkhead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.wktitle{display:flex;flex-direction:column;align-items:center;min-width:0}
+.wktitle h3{font-family:var(--display);font-weight:800;font-size:18px;margin:0;line-height:1.1}
+.wktitle span{font-size:13px;color:var(--muted)}
+.wkmain{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.wkbig{display:flex;flex-direction:column;min-width:0}
+.wkbig b{font-family:var(--display);font-weight:800;font-size:32px;line-height:1;letter-spacing:-.02em}
+.wkbig span{font-size:13px;color:var(--muted);margin-top:4px}
+.chip.ok{color:var(--accent);border-color:var(--accent)}
+.chip.mid{color:var(--carb);border-color:var(--carb)}
+.chip.bad{color:var(--warn);border-color:var(--warn)}
+.wkmac{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.wkmac div{background:var(--sunk);border-radius:12px;padding:8px 6px;text-align:center;display:flex;flex-direction:column;gap:1px}
+.wkmac b{font-weight:700;font-size:16px}
+.wkmac span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.wkmac small{font-size:11.5px;color:var(--muted)}
+.wk .week{border:0;padding:12px 4px 8px;background:var(--bg)}
+.wbar.ok{background:var(--accent)}
+.wbar.mid{background:var(--carb)}
+.wbar.bad{background:var(--warn)}
+.wbar.open{background:color-mix(in srgb,var(--accent) 45%,var(--sunk))}
+.wkplan{margin:0;font-size:14px;background:var(--sunk);border-radius:12px;padding:10px 12px}
+.wkplan b{font-weight:700}
+.wk .hint{margin:-4px 0 0}
 .goalline{position:absolute;left:10px;right:10px;border-top:1.5px dashed var(--muted);opacity:.55;pointer-events:none}
 
 /* ajustes */
@@ -270,6 +295,7 @@ select{font:inherit;color:var(--ink);border:1px solid var(--line);background:var
       <input id="importInput" type="file" accept="application/json,.json" hidden>
     </div>
     <div class="actions"><button class="primary" id="saveGoals">Guardar</button><button class="ghost" id="closeGoals">Cerrar</button></div>
+    <p class="cost num" id="verLine"></p>
   </section>
 
   <section class="summary" aria-label="Resumen del día">
@@ -279,6 +305,22 @@ select{font:inherit;color:var(--ink);border:1px solid var(--line);background:var
     </div>
     <div class="macros" id="macroBars"></div>
     <div class="left num" id="leftLine"></div>
+  </section>
+
+  <section class="wk" aria-label="Resumen semanal">
+    <div class="wkhead">
+      <button class="calnav" id="wkPrev" aria-label="Semana anterior">‹</button>
+      <div class="wktitle"><h3>Semana</h3><span class="num" id="wkRange"></span></div>
+      <button class="calnav" id="wkNext" aria-label="Semana siguiente">›</button>
+    </div>
+    <div class="wkmain">
+      <div class="wkbig"><b class="num" id="wkAvg">–</b><span id="wkAvgSub">kcal promedio por día</span></div>
+      <span class="chip" id="wkChip">Sin datos</span>
+    </div>
+    <div class="wkmac num" id="wkMac"></div>
+    <div class="week" id="week"></div>
+    <p class="wkplan" id="wkPlan" hidden></p>
+    <p class="hint num" id="wkFoot"></p>
   </section>
 
   <section class="capture" id="capture">
@@ -304,10 +346,6 @@ select{font:inherit;color:var(--ink);border:1px solid var(--line);background:var
     <div id="log"></div>
   </section>
 
-  <section class="sec">
-    <h3>Últimos 7 días</h3>
-    <div class="week" id="week"></div>
-  </section>
 </main>
 <div class="toast" id="toast" hidden></div>
 <script>
@@ -459,19 +497,83 @@ function onDelete(id){
   armedId=null;
   if(saveDay(current, mealsOf(current).filter(m=>m.id!==id))) toast("Comida eliminada");
 }
+/* ---------- consolidado semanal (lunes a domingo) ---------- */
+function weekStart(s){ const d=parse(s); return shift(s, -((d.getDay()+6)%7)); }
+function weekStats(start){
+  const g=state.goals, td=today(), ks=[]; for(let i=0;i<7;i++) ks.push(shift(start,i));
+  const closed=ks.filter(k=>k<td && mealsOf(k).length);           // días ya terminados con registro
+  const sum=sumMeals(closed.flatMap(k=>mealsOf(k)));
+  const n=closed.length;
+  const avg=n? {kcal:sum.kcal/n,p:sum.p/n,c:sum.c/n,g:sum.g/n} : null;
+  let status=null;
+  if(avg && g.kcal){
+    const dev=Math.abs(avg.kcal-g.kcal)/g.kcal, prot=g.p? avg.p/g.p : 1;
+    status = dev<=0.10 && prot>=0.90 ? "ok" : dev<=0.20 && prot>=0.75 ? "mid" : "bad";
+  }
+  const isCurrent = td>=ks[0] && td<=ks[6];
+  let plan=null;
+  if(isCurrent && g.kcal){
+    const left=ks.filter(k=>k>=td).length;                        // hoy + días que faltan
+    const perK=(g.kcal*(n+left)-sum.kcal)/left, perP=(g.p*(n+left)-sum.p)/left;
+    plan={left, perK, perP};
+  }
+  return {ks, n, avg, status, isCurrent, plan, total:sum};
+}
+const STATUS_TXT={ok:"En meta",mid:"Cerca",bad:"Fuera de meta"};
 function renderWeek(){
-  const goals=state.goals, w=$("#week"); w.replaceChildren();
-  const ks=[]; for(let i=6;i>=0;i--) ks.push(shift(current,-i));
-  const vals=ks.map(k=>sumMeals(mealsOf(k)).kcal);
-  const max=Math.max(goals.kcal*1.2, ...vals, 1), inner=80;
-  for(let i=0;i<7;i++){
-    const k=ks[i], v=vals[i], h=Math.max(3, v/max*inner);
-    const cls="wbar"+(v>0?" has":"")+(goals.kcal && v>goals.kcal*1.05?" over":"");
-    w.append(el("button",{class:"wcol"+(k===current?" cur":""), "aria-label":dayLabel(k)+": "+r0(v)+" kcal", onclick:()=>{ current=k; render(); renderResult(); }},
+  const g=state.goals, start=weekStart(current), W=weekStats(start);
+  const a=parse(W.ks[0]), b=parse(W.ks[6]);
+  const fmt=(d,o)=>d.toLocaleDateString("es-CL",o);
+  $("#wkRange").textContent = a.getMonth()===b.getMonth()
+    ? a.getDate()+"–"+fmt(b,{day:"numeric",month:"short"})
+    : fmt(a,{day:"numeric",month:"short"})+" – "+fmt(b,{day:"numeric",month:"short"});
+  $("#wkNext").disabled = W.isCurrent || start>today();
+  const chip=$("#wkChip");
+  chip.className="chip"+(W.status?" "+W.status:"");
+  chip.textContent = W.status ? STATUS_TXT[W.status]+(W.isCurrent?" · en curso":"") : (W.isCurrent?"Recién empieza":"Sin registros");
+  if(W.avg){
+    $("#wkAvg").textContent=r0(W.avg.kcal).toLocaleString("es-CL");
+    const diff=g.kcal? Math.round((W.avg.kcal-g.kcal)/g.kcal*100) : 0;
+    $("#wkAvgSub").textContent="kcal promedio por día · "+(diff===0?"justo en tu meta":(diff>0?"+":"")+diff+" % vs. meta");
+  } else { $("#wkAvg").textContent="–"; $("#wkAvgSub").textContent="kcal promedio por día"; }
+  const mac=$("#wkMac"); mac.replaceChildren();
+  for(const [k,name,colr] of MACROS){
+    mac.append(el("div",null, el("span",null,name==="Carbohidratos"?"Carbos":name),
+      el("b",{style:"color:var("+colr+")"}, W.avg? r0(W.avg[k])+" g" : "–"),
+      el("small",null,"meta "+r0(g[k])+" g")));
+  }
+  // barras por día, coloreadas según cumplimiento
+  const w=$("#week"); w.replaceChildren();
+  const vals=W.ks.map(k=>sumMeals(mealsOf(k)).kcal);
+  const max=Math.max(g.kcal*1.2, ...vals, 1), inner=80, td=today();
+  W.ks.forEach((k,i)=>{
+    const v=vals[i], st=dayStatus(k), h=Math.max(3, v/max*inner), fut=k>td;
+    const cls="wbar"+(st?" "+st:(v>0?" open":""));
+    w.append(el("button",{class:"wcol"+(k===current?" cur":""), disabled:fut, "aria-label":dayLabel(k)+": "+r0(v)+" kcal"+(st?", "+STATUS_TXT[st].toLowerCase():""), onclick:()=>{ current=k; render(); renderResult(); }},
       el("div",{class:cls,style:"height:"+h+"px"}),
       el("span",{class:"wd"}, parse(k).toLocaleDateString("es-CL",{weekday:"narrow"}))));
-  }
-  if(goals.kcal){ const gl=el("div",{class:"goalline"}); gl.style.bottom=(8+20+goals.kcal/max*inner)+"px"; w.append(gl); }
+  });
+  if(g.kcal){ const gl=el("div",{class:"goalline"}); gl.style.bottom=(8+20+g.kcal/max*inner)+"px"; w.append(gl); }
+  // plan para cerrar la semana
+  const plan=$("#wkPlan");
+  if(W.plan && W.n>0){
+    const P=W.plan, k=Math.max(0,P.perK), dias=P.left===1?"hoy":"por día de hoy al domingo";
+    plan.replaceChildren();
+    if(k < g.kcal*0.8){
+      plan.append("Vas sobre la meta esta semana. No compenses comiendo muy poco: vuelve a tu meta diaria (",
+        el("b",null,r0(g.kcal).toLocaleString("es-CL")+" kcal"),") y la próxima semana partes de cero.");
+    } else if(k > g.kcal*1.2){
+      plan.append("Vas bajo la meta esta semana. Puedes comer algo más, ",el("b",null,"hasta ~"+r0(Math.min(k,g.kcal*1.15)).toLocaleString("es-CL")+" kcal "+dias),
+        ", priorizando proteína (",el("b",null,r0(Math.max(g.p,P.perP))+" g"),").");
+    } else {
+      plan.append("Para cerrar la semana en meta: ",el("b",null,"~"+r0(k).toLocaleString("es-CL")+" kcal y "+r0(Math.max(0,P.perP))+" g de proteína "+dias),".");
+    }
+    plan.hidden=false;
+  } else plan.hidden=true;
+  const unlogged=W.ks.filter(k=>k<td && !mealsOf(k).length).length;
+  $("#wkFoot").textContent = W.n
+    ? "Promedio de "+W.n+(W.n===1?" día cerrado":" días cerrados")+" con registro"+(W.isCurrent?"; hoy entra cuando termine el día":"")+(unlogged?" · "+unlogged+(unlogged===1?" día":" días")+" sin registrar no cuentan":"")+"."
+    : (W.isCurrent ? "El promedio aparece cuando cierres el primer día con registro." : "No registraste comidas esta semana.");
 }
 
 /* ---------- imágenes ---------- */
@@ -680,6 +782,8 @@ $("#textGo").onclick=()=>analyze(null);
 $("#prevDay").onclick=()=>{ current=shift(current,-1); render(); renderResult(); };
 $("#nextDay").onclick=()=>{ if(current<today()){ current=shift(current,1); render(); renderResult(); } };
 $("#dayLabel").onclick=()=>openCal();
+$("#wkPrev").onclick=()=>{ current=shift(weekStart(current),-1); render(); renderResult(); };
+$("#wkNext").onclick=()=>{ const n=shift(weekStart(current),7); if(n<=today()){ current = shift(n,6)<today()? shift(n,6) : today(); render(); renderResult(); } };
 $("#calPrev").onclick=()=>{ const [y,m]=calMonth.split("-").map(Number); const d=new Date(y,m-2,1); calMonth=d.getFullYear()+"-"+pad(d.getMonth()+1); renderCal(); };
 $("#calNext").onclick=()=>{ const [y,m]=calMonth.split("-").map(Number); const d=new Date(y,m,1); const k=d.getFullYear()+"-"+pad(d.getMonth()+1); if(k<=today().slice(0,7)){ calMonth=k; renderCal(); } };
 $("#calToday").onclick=()=>{ current=today(); openCal(false); render(); renderResult(); };
@@ -691,9 +795,25 @@ $("#setupSave").onclick=()=>{ const k=$("#setupKey").value.trim(); if(!k.startsW
 $("#exportBtn").onclick=exportBackup;
 $("#importBtn").onclick=()=>$("#importInput").click();
 $("#importInput").addEventListener("change",e=>{ const f=e.target.files&&e.target.files[0]; if(f) importBackup(f); e.target.value=""; });
-document.addEventListener("visibilitychange",()=>{ if(!document.hidden) render(); });
+/* ---------- actualización automática ---------- */
+const APP_VERSION="2026-10-08a";
+let checking=false;
+async function checkUpdate(){
+  if(checking || !/^https?:/.test(location.protocol)) return; checking=true;
+  try{
+    const res=await fetch("./index.html?check="+Date.now(),{cache:"no-store"});
+    const m=(await res.text()).match(/APP_VERSION="([^"]+)"/);
+    if(m && m[1]!==APP_VERSION && !pending){
+      let tried=null; try{ tried=sessionStorage.getItem("plato.tried"); }catch(e){}
+      if(tried!==m[1]){ try{ sessionStorage.setItem("plato.tried",m[1]); }catch(e){} location.replace("./?v="+encodeURIComponent(m[1])); return; }
+    }
+  }catch(e){} finally{ checking=false; }
+}
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden){ render(); checkUpdate(); } });
 
+$("#verLine").textContent="Versión "+APP_VERSION;
 render();
+checkUpdate();
 })();
 
 </script>
